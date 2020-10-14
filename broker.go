@@ -6,14 +6,13 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 	"net"
 	"sort"
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
+	"github.com/rs/zerolog"
 )
 
 var (
@@ -31,7 +30,7 @@ type Broker struct {
 	mutex              sync.RWMutex
 	config             Config
 	plugins            []gottPlugin
-	logger             *zap.Logger
+	logger             *zerolog.Logger
 	TopicFilterStorage *topicStorage
 	MessageStore       *messageStore
 	SessionStore       *sessionStore
@@ -83,14 +82,13 @@ func (b *Broker) Listen() error {
 		defer l.Close()
 
 		b.listener = l
-		log.Println("Broker listening on " + b.listener.Addr().String())
-		b.logger.Info("Broker listening on " + b.listener.Addr().String())
+		b.logger.Info().Str("addr", b.listener.Addr().String()).Msg("Broker listening on")
 
 		go func(b *Broker) {
 			for {
 				conn, err := b.listener.Accept()
 				if err != nil {
-					log.Printf("Couldn't accept connection: %v\n", err)
+					b.logger.Error().Str("addr", b.listener.Addr().String()).Err(err).Msg("Couldn't accept connection")
 				} else {
 					go b.handleConnection(conn)
 				}
@@ -105,7 +103,9 @@ func (b *Broker) Listen() error {
 			return fmt.Errorf("couldn't load cert or key file: %v", err)
 		}
 
-		config := tls.Config{Certificates: []tls.Certificate{cert}}
+		config := tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
 
 		tl, err := tls.Listen("tcp", b.config.Tls.Listen, &config)
 		if err != nil {
@@ -113,14 +113,13 @@ func (b *Broker) Listen() error {
 		}
 
 		b.tlsListener = tl
-		log.Println("Started TLS listener on " + b.tlsListener.Addr().String())
-		b.logger.Info("Started TLS listener on " + b.tlsListener.Addr().String())
+		b.logger.Info().Str("addr", b.tlsListener.Addr().String()).Msg("Started TLS listener on")
 
 		go func(b *Broker) {
 			for {
 				conn, err := b.tlsListener.Accept()
 				if err != nil {
-					log.Printf("Couldn't accept connection: %v\n", err)
+					b.logger.Error().Str("addr", b.tlsListener.Addr().String()).Err(err).Msg("Couldn't accept connection")
 				} else {
 					go b.handleConnection(conn)
 				}
@@ -140,7 +139,7 @@ func (b *Broker) addClient(client *Client) {
 	b.mutex.RLock()
 	if c, ok := b.clients[client.ClientID]; ok {
 		// disconnect existing client
-		log.Println("disconnecting existing client with id:", c.ClientID)
+		b.logger.Error().Str("id", c.ClientID).Msg("disconnecting existing client")
 		c.closeConnection()
 	}
 	b.mutex.RUnlock()
@@ -162,7 +161,7 @@ func (b *Broker) handleConnection(conn net.Conn) {
 		return
 	}
 
-	log.Printf("Accepted connection from %v", conn.RemoteAddr().String())
+	b.logger.Info().Str("remoteaddr", conn.RemoteAddr().String()).Msg("Accepted connection")
 
 	c := &Client{
 		connection: conn,

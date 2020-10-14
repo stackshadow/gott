@@ -1,15 +1,12 @@
 package gott
 
 import (
-	"log"
 	"net"
 	"os"
 	"path"
 	"plugin"
 
 	"github.com/oimyounis/gott/utils"
-
-	"go.uber.org/zap"
 )
 
 // gottPlugin represents an plugin
@@ -31,15 +28,15 @@ type gottPlugin struct {
 
 func (b *Broker) bootstrapPlugins() {
 	if !utils.PathExists(pluginDir) {
-		log.Println("Plugins directory does not exist. Creating a new one.")
+		b.logger.Info().Msg("Plugins directory does not exist. Creating a new one.")
 		if err := os.Mkdir(pluginDir, 0775); err != nil {
-			log.Fatalln("Failed to create the plugins directory:", err)
+			b.logger.Error().Err(err).Msg("Failed to create the plugins directory")
 		}
 	}
 	for _, pstring := range b.config.Plugins {
 		p, err := plugin.Open(path.Join(pluginDir, pstring))
 		if err != nil {
-			log.Printf("Skipping loading plugin %s: %v", pstring, err)
+			b.logger.Error().Err(err).Str("name", pstring).Msg("Skipping loading plugin")
 			continue
 		}
 
@@ -57,7 +54,10 @@ func (b *Broker) bootstrapPlugins() {
 		h, err := p.Lookup("OnSocketOpen")
 		if err == nil {
 			f, ok := h.(func(conn net.Conn) bool)
-			b.logger.Debug("plugin loader OnSocketOpen", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnSocketOpen")
 			if ok {
 				pluginObj.onSocketOpen = f
 			}
@@ -66,7 +66,10 @@ func (b *Broker) bootstrapPlugins() {
 		h, err = p.Lookup("OnBeforeConnect")
 		if err == nil {
 			f, ok := h.(func(clientID, username, password string) bool)
-			b.logger.Debug("plugin loader OnBeforeConnect", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnBeforeConnect")
 			if ok {
 				pluginObj.onBeforeConnect = f
 			}
@@ -74,7 +77,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnConnect"); err == nil {
 			f, ok := h.(func(clientID, username, password string) bool)
-			b.logger.Debug("plugin loader OnConnect", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnConnect")
 			if ok {
 				pluginObj.onConnect = f
 			}
@@ -82,7 +88,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnMessage"); err == nil {
 			f, ok := h.(func(clientID, username string, topic, payload []byte, dup, qos byte, retain bool))
-			b.logger.Debug("plugin loader OnMessage", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnMessage")
 			if ok {
 				pluginObj.onMessage = f
 			}
@@ -90,7 +99,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnBeforePublish"); err == nil {
 			f, ok := h.(func(clientID, username string, topic, payload []byte, dup, qos byte, retain bool) bool)
-			b.logger.Debug("plugin loader OnBeforePublish", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnBeforePublish")
 			if ok {
 				pluginObj.onBeforePublish = f
 			}
@@ -98,7 +110,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnPublish"); err == nil {
 			f, ok := h.(func(clientID, username string, topic, payload []byte, dup, qos byte, retain bool))
-			b.logger.Debug("plugin loader OnPublish", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnPublish")
 			if ok {
 				pluginObj.onPublish = f
 			}
@@ -106,7 +121,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnBeforeSubscribe"); err == nil {
 			f, ok := h.(func(clientID, username string, topic []byte, qos byte) bool)
-			b.logger.Debug("plugin loader OnBeforeSubscribe", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnBeforeSubscribe")
 			if ok {
 				pluginObj.onBeforeSubscribe = f
 			}
@@ -114,7 +132,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnSubscribe"); err == nil {
 			f, ok := h.(func(clientID, username string, topic []byte, qos byte))
-			b.logger.Debug("plugin loader OnSubscribe", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnSubscribe")
 			if ok {
 				pluginObj.onSubscribe = f
 			}
@@ -122,7 +143,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnBeforeUnsubscribe"); err == nil {
 			f, ok := h.(func(clientID, username string, topic []byte) bool)
-			b.logger.Debug("plugin loader OnBeforeUnsubscribe", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnBeforeUnsubscribe")
 			if ok {
 				pluginObj.onBeforeUnsubscribe = f
 			}
@@ -130,7 +154,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnUnsubscribe"); err == nil {
 			f, ok := h.(func(clientID, username string, topic []byte))
-			b.logger.Debug("plugin loader OnUnsubscribe", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnUnsubscribe")
 			if ok {
 				pluginObj.onUnsubscribe = f
 			}
@@ -138,7 +165,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		if h, err = p.Lookup("OnDisconnect"); err == nil {
 			f, ok := h.(func(clientID, username string, graceful bool))
-			b.logger.Debug("plugin loader OnDisconnect", zap.String("name", pstring), zap.Bool("loaded", ok))
+			GOTT.logger.Debug().
+				Str("name", pstring).
+				Bool("loaded", ok).
+				Msg("plugin loader OnDisconnect")
 			if ok {
 				pluginObj.onDisconnect = f
 			}
@@ -146,7 +176,10 @@ func (b *Broker) bootstrapPlugins() {
 
 		b.plugins = append(b.plugins, pluginObj)
 
-		b.logger.Debug("plugin loaded", zap.String("name", pstring))
+		GOTT.logger.Debug().
+			Str("name", pstring).
+			Msg("plugin loaded")
+
 	}
 }
 

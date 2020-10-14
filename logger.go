@@ -1,40 +1,59 @@
 package gott
 
 import (
-	"net/url"
+	"io"
+	"os"
+	"path"
 
-	"go.uber.org/zap"
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-type lumberjackSink struct {
-	*lumberjack.Logger
-}
+// NewLogger initializes a zerolog-logger
+//
+// if an filename is configured, we use the lumberjack-logger to write to it
+//
+// if the filename contains a folder, it will be created
+func NewLogger(cnf loggingConfig) *zerolog.Logger {
 
-// Sync implements zap.Sink. The remaining methods are implemented
-// by the embedded *lumberjack.Logger.
-func (lumberjackSink) Sync() error { return nil }
+	var writers []io.Writer
+	var err error
 
-// NewLogger initializes a new zap.Logger with lumberjack support
-// to write to log files with rotation.
-func NewLogger(cnf loggingConfig) *zap.Logger {
-	_ = zap.RegisterSink("lumberjack", func(u *url.URL) (zap.Sink, error) {
-		return lumberjackSink{
-			Logger: &lumberjack.Logger{
-				Filename:   u.Opaque,
-				MaxSize:    cnf.MaxSize, // megabytes
-				MaxBackups: cnf.MaxBackups,
-				MaxAge:     cnf.MaxAge, //days
-				Compress:   cnf.EnableCompression,
-			},
-		}, nil
-	})
+	// per default we use consolewriter
+	writers = append(writers, zerolog.ConsoleWriter{Out: os.Stdout})
 
-	config := zap.NewDevelopmentConfig()
-	config.OutputPaths = []string{"lumberjack:logs/" + cnf.Filename}
-	config.DisableCaller = true
-	config.Level.SetLevel(cnf.logLevel)
+	// if an filename provided, we use the lumberjack-logger
+	if cnf.Filename != "" {
 
-	logger, _ := config.Build()
-	return logger
+		// created needed folder
+		configFolder := path.Dir(cnf.Filename)
+		if err = os.MkdirAll(configFolder, 0744); err != nil {
+			log.Error().Err(err).Str("path", configFolder).Msg("can't create log directory")
+		}
+
+		// add the writer
+		if err == nil {
+			var fileWriter io.Writer = &lumberjack.Logger{
+				Filename:   cnf.Filename,
+				MaxBackups: cnf.MaxBackups, // files
+				MaxSize:    cnf.MaxSize,    // megabytes
+				MaxAge:     cnf.MaxAge,     // days
+			}
+
+			writers = append(writers, zerolog.ConsoleWriter{Out: fileWriter, NoColor: true})
+		}
+	}
+	mw := io.MultiWriter(writers...)
+
+	logger := zerolog.New(mw).With().Timestamp().Logger()
+
+	logger.Info().
+		Str("fileName", cnf.Filename).
+		Int("maxSizeMB", cnf.MaxSize).
+		Int("maxBackups", cnf.MaxBackups).
+		Int("maxAgeInDays", cnf.MaxAge).
+		Msg("logging configured")
+
+	return &logger
 }

@@ -4,8 +4,7 @@ import (
 	"io/ioutil"
 	"log"
 
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+	"github.com/rs/zerolog"
 
 	"gopkg.in/yaml.v2"
 )
@@ -25,7 +24,7 @@ type loggingConfig struct {
 	MaxBackups        int  `yaml:"max_backups"`
 	MaxAge            int  `yaml:"max_age"`
 	EnableCompression bool `yaml:"enable_compression"`
-	logLevel          zapcore.Level
+	logLevel          zerolog.Level
 }
 
 type Config struct {
@@ -69,17 +68,20 @@ func (c *Config) loadConfig() error {
 
 	switch c.Logging.LogLevel {
 	case "debug":
-		c.Logging.logLevel = zap.DebugLevel
+		c.Logging.logLevel = zerolog.DebugLevel
 	case "info":
-		c.Logging.logLevel = zap.InfoLevel
+		c.Logging.logLevel = zerolog.InfoLevel
 	case "error":
-		c.Logging.logLevel = zap.ErrorLevel
+		c.Logging.logLevel = zerolog.ErrorLevel
 	case "fatal":
-		c.Logging.logLevel = zap.FatalLevel
+		c.Logging.logLevel = zerolog.FatalLevel
 	default:
 		c.Logging.LogLevel = "error"
-		c.Logging.logLevel = zap.ErrorLevel
+		c.Logging.logLevel = zerolog.ErrorLevel
 	}
+
+	// set loglevel
+	zerolog.SetGlobalLevel(c.Logging.logLevel)
 
 	return nil
 }

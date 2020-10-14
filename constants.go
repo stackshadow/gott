@@ -82,7 +82,7 @@ tls:
     # available levels are "debug", "info", "error" and "fatal",
     # "debug" is the lowest and "fatal" is the highest,
     # each level includes higher levels as well, default is "error".
-  # logging.filename: The name to use for the log file.
+  # logging.filename: The name to use for the log file. If this is empty, we only log to stdout
   # logging.max_size: The maximum size in megabytes of the log file to trigger rotation.
   # logging.max_backups: The maximum number of log files to keep, when the max is reached,
     # the logger will start deleting older backups.
